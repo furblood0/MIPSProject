@@ -30,7 +30,7 @@ This project is a MIPS 32-bit architecture simulator designed to execute a subse
 ## Installation
 1. Clone the repository:
    ```bash
-   git clone <repository-url>
+   git clone <https://github.com/furblood0/MIPSProject.git>
    cd mips-simulator
    ```
 
@@ -93,20 +93,16 @@ end:
 ## File Structure
 - `mips_simulator.py`: Main source code containing the simulator implementation.
 - `README.md`: Documentation for the project.
+- `POJECT_REPORT.pdf`: Summary report including the purpose, design and implementation details of the project.
 
 ## Known Issues
 - Limited error handling for certain edge cases in assembly code input.
 - Performance may degrade for very large instruction sets.
-
-## Future Enhancements
-- Support additional MIPS instructions.
-- Add a feature to save and load programs from files.
-- Implement a more comprehensive debugging tool.
 
 ## Acknowledgments
 This project was developed as part of a course assignment to enhance understanding of computer architecture concepts through simulation.
 
 ---
 
-For any issues or questions, please contact [Your Email/Name].
+For any issues or questions, please contact [kiyak.rabia03@gmail.com/Rabia Leyla Kıyak].
 

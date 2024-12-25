@@ -861,22 +861,22 @@ class MIPSSimulator(QMainWindow):
     def run_test_suite(self):
         test_programs = {
             "R-Format Test": """
-                addi $t0,$zero,10
-                addi $t1,$zero,5
-                add $t2,$t0,$t1
-                sub $t3,$t0,$t1
-                and $t4,$t0,$t1
-                or $t5,$t0,$t1
-                slt $t6,$t1,$t0
+                addi $t0, $zero, 10
+                addi $t1, $zero, 5
+                add $t2, $t0, $t1
+                sub $t3, $t0, $t1
+                and $t4, $t0, $t1
+                or $t5, $t0, $t1
+                slt $t6, $t1, $t0
             """,
             "I-Format Test": """
-                addi $t0,$zero,100
-                sw $t0,0($zero)
-                lw $t1,0($zero)
-                beq $t0,$t1,equal
-                addi $t2,$zero,1
+                addi $t0, $zero, 100
+                sw $t0, 0($zero)
+                lw $t1, 0($zero)
+                beq $t0, $t1, equal
+                addi $t2, $zero, 1
                 equal:
-                bne $t0,$zero,next
+                bne $t0, $zero, next
                 next:
             """,
             "J-Format Test": """
