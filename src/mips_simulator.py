@@ -9,6 +9,7 @@ import sys
 
 
 class MIPSSimulator(QMainWindow):
+#Başlangıç ve UI    
     def __init__(self):
         super().__init__()
         # Memory configuration
@@ -220,6 +221,7 @@ class MIPSSimulator(QMainWindow):
         output_group.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         trace_group.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
+#Program kontrol butonları
     def reset_program(self):
         """Program durumunu sıfırlar"""
         try:
@@ -449,6 +451,7 @@ class MIPSSimulator(QMainWindow):
         except Exception as e:
             self.output_log.append(f"Error: {str(e)}")
 
+#Komut işleme
     def fetch_instruction(self):
         if self.pc // 4 < len(self.instruction_memory):
             instruction = self.instruction_memory[self.pc // 4]
@@ -461,14 +464,6 @@ class MIPSSimulator(QMainWindow):
         op = parts[0].lower()
         self.output_log.append(f"Decode: Operation = {op}")
         return parts
-
-    def clean_params(self, params):
-        # Önce tüm virgülleri boşluğa çevir
-        params = params.replace(',', ' ')
-        # Birden fazla boşluğu tek boşluğa çevir
-        params = ' '.join(params.split())
-        # Boşluklarla ayır ve temizle
-        return [p.strip() for p in params.split()]
 
     def execute_instruction(self, instruction):
         """Komutları yürütür"""
@@ -492,7 +487,15 @@ class MIPSSimulator(QMainWindow):
                 rd_idx = self.register_map[rd]
                 rs_idx = self.register_map[rs]
                 rt_idx = self.register_map[rt]
-                self.registers[rd_idx] = self.registers[rs_idx] + self.registers[rt_idx]
+                rs_val = self.registers[rs_idx]
+                rt_val = self.registers[rt_idx]
+                result = rs_val + rt_val
+                # 32-bit integer taşma kontrolü
+                if result > 0x7FFFFFFF:  # Pozitif taşma
+                    result = (result & 0xFFFFFFFF) - (1 << 32)
+                elif result < -0x80000000:  # Negatif taşma
+                    result = (result & 0xFFFFFFFF)
+                self.registers[rd_idx] = result
                 self.output_log.append(f"{rd} = {self.registers[rd_idx]}")
             
             elif op == "sub":
@@ -619,119 +622,28 @@ class MIPSSimulator(QMainWindow):
             self.output_log.append(f"Error: {str(e)}")
             raise
 
-    def add_to_trace(self, instruction, machine_code, old_reg_values, old_mem_values):
-        trace_entry = (
-            f"PC: 0x{self.pc:08x}\n"
-            f"Instruction: {instruction}\n"
-            f"Machine Code: {machine_code}\n"
-            f"Register Changes: {self.get_register_changes(old_reg_values)}\n"
-            f"Memory Changes: {self.get_memory_changes(old_mem_values)}\n"
-            f"{'-'*50}\n"
-        )
-        self.execution_trace.append(trace_entry)
-        self.update_trace_display()
-
-    def update_trace_display(self):
-        self.trace_display.setText("".join(self.execution_trace))
-        # Otomatik olarak en alta kaydır
-        self.trace_display.verticalScrollBar().setValue(
-            self.trace_display.verticalScrollBar().maximum()
-        )
-
-    def populate_memory(self):
-        """Veri belleğini (data memory) 4'er byte'lık bloklar halinde görüntüle."""
-        self.data_memory_table.setRowCount(self.MEMORY_SIZE // self.WORD_SIZE)  # 512 byte / 4 = 128 satır
-        self.data_memory_table.setColumnCount(2)  # Adres ve Değer sütunları
-        self.data_memory_table.setHorizontalHeaderLabels(["Address (Hex/Dec)", "Value"])
-        self.data_memory_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-
-        for i in range(len(self.data_memory)):
-            # Adres sütunu
-            address_hex = f"0x{i * 4:08x}"  # Hexadecimal format
-            address_dec = f"({i * 4})"     # Decimal format
-            address_item = QTableWidgetItem(f"{address_hex} {address_dec}")
-            address_item.setFlags(Qt.ItemIsEnabled)  # Düzenlenemez
-
-            # Değer sütunu
-            value = self.data_memory[i]
-            value_item = QTableWidgetItem(str(value))
-            value_item.setFlags(Qt.ItemIsEnabled)  # Düzenlenemez
-
-            # Renk değişimi: değer 0 değilse arka planı gri yap
-            if value != 0:
-                value_item.setBackground(Qt.lightGray)
-            else:
-                value_item.setBackground(Qt.white)
-
-            # Tabloya ekle
-            self.data_memory_table.setItem(i, 0, address_item)
-            self.data_memory_table.setItem(i, 1, value_item)
-
-
-
-    def populate_registers(self):
-        """Registers tablosunu hem numerik hem sembolik isimlerle doldurur"""
-        # Register açıklamaları ve grupları
-        register_info = [
-            ("$zero", 0, "Constant 0"),
-            ("$at", 1, "Assembler temporary"),
-            ("$v0", 2, "Values for results"),
-            ("$v1", 3, "Values for results"),
-            ("$a0", 4, "Arguments"),
-            ("$a1", 5, "Arguments"),
-            ("$a2", 6, "Arguments"),
-            ("$a3", 7, "Arguments"),
-            ("$t0", 8, "Temporaries"),
-            ("$t1", 9, "Temporaries"),
-            ("$t2", 10, "Temporaries"),
-            ("$t3", 11, "Temporaries"),
-            ("$t4", 12, "Temporaries"),
-            ("$t5", 13, "Temporaries"),
-            ("$t6", 14, "Temporaries"),
-            ("$t7", 15, "Temporaries"),
-            ("$s0", 16, "Saved temporaries"),
-            ("$s1", 17, "Saved temporaries"),
-            ("$s2", 18, "Saved temporaries"),
-            ("$s3", 19, "Saved temporaries"),
-            ("$s4", 20, "Saved temporaries"),
-            ("$s5", 21, "Saved temporaries"),
-            ("$s6", 22, "Saved temporaries"),
-            ("$s7", 23, "Saved temporaries"),
-            ("$t8", 24, "More temporaries"),
-            ("$t9", 25, "More temporaries"),
-            ("$k0", 26, "Reserved for OS"),
-            ("$k1", 27, "Reserved for OS"),
-            ("$gp", 28, "Global pointer"),
-            ("$sp", 29, "Stack pointer"),
-            ("$fp", 30, "Frame pointer"),
-            ("$ra", 31, "Return address")
-        ]
+    def clean_instruction_params(self, instruction):
+        """Temiz parametre listesi döndürür"""
+        parts = instruction.split(None, 1)  # İlk boşluktan böl (opcode ve parametreleri ayır)
+        if len(parts) < 2:
+            return [], ""
         
-        # Tabloyu doldur
-        for i, (name, number, desc) in enumerate(register_info):
-            # Numeric isim
-            numeric_item = QTableWidgetItem(f"$r{number}")
-            
-            # Sembolik isim
-            symbolic_item = QTableWidgetItem(name)
-            
-            # Değer
-            value_item = QTableWidgetItem(str(self.registers[i]))
-            
-            # Tabloya ekle
-            self.register_file_table.setItem(i, 0, numeric_item)
-            self.register_file_table.setItem(i, 1, symbolic_item)
-            self.register_file_table.setItem(i, 2, value_item)
+        op = parts[0].lower()
+        params_str = parts[1]
         
-        # Sütun genişliklerini ayarla
-        header = self.register_file_table.horizontalHeader()
-        header.setSectionResizeMode(0, QHeaderView.ResizeToContents)  # Numeric sütunu içeriğe göre
-        header.setSectionResizeMode(1, QHeaderView.Fixed)            # Symbolic sütunu sabit genişlik
-        header.setSectionResizeMode(2, QHeaderView.Stretch)          # Value sütunu kalan alanı doldursun
-        
-        # Symbolic sütununun genişliğini manuel ayarla
-        self.register_file_table.setColumnWidth(1, 80)  # Piksel cinsinden genişlik
+        # Tüm boşlukları kaldır ve virgülle ayrılmış parametreleri al
+        clean_params = [p.strip() for p in params_str.replace(" ", "").split(",")]
+        return clean_params, op
 
+    def clean_params(self, params):
+        # Önce tüm virgülleri boşluğa çevir
+        params = params.replace(',', ' ')
+        # Birden fazla boşluğu tek boşluğa çevir
+        params = ' '.join(params.split())
+        # Boşluklarla ayır ve temizle
+        return [p.strip() for p in params.split()]
+
+#Makine kodu üretimi
     def generate_machine_code(self, instruction):
         """MIPS komutları için binary machine code üretimi"""
         try:
@@ -858,44 +770,98 @@ class MIPSSimulator(QMainWindow):
             self.machine_code_table.setItem(i, 1, QTableWidgetItem(inst))
             self.machine_code_table.setItem(i, 2, QTableWidgetItem(code))
 
-    def run_test_suite(self):
-        test_programs = {
-            "R-Format Test": """
-                addi $t0, $zero, 10
-                addi $t1, $zero, 5
-                add $t2, $t0, $t1
-                sub $t3, $t0, $t1
-                and $t4, $t0, $t1
-                or $t5, $t0, $t1
-                slt $t6, $t1, $t0
-            """,
-            "I-Format Test": """
-                addi $t0, $zero, 100
-                sw $t0, 0($zero)
-                lw $t1, 0($zero)
-                beq $t0, $t1, equal
-                addi $t2, $zero, 1
-                equal:
-                bne $t0, $zero, next
-                next:
-            """,
-            "J-Format Test": """
-                j main
-                addi $t0,$zero,1
-                main:
-                jal proc
-                j end
-                proc:
-                addi $t1,$zero,2
-                jr $ra
-                end:
-            """
-        }
+#Durum takip ve görüntüleme
+    def populate_memory(self):
+        """Veri belleğini (data memory) 4'er byte'lık bloklar halinde görüntüle."""
+        self.data_memory_table.setRowCount(self.MEMORY_SIZE // self.WORD_SIZE)  # 512 byte / 4 = 128 satır
+        self.data_memory_table.setColumnCount(2)  # Adres ve Değer sütunları
+        self.data_memory_table.setHorizontalHeaderLabels(["Address (Hex/Dec)", "Value"])
+        self.data_memory_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+
+        for i in range(len(self.data_memory)):
+            # Adres sütunu
+            address_hex = f"0x{i * 4:08x}"  # Hexadecimal format
+            address_dec = f"({i * 4})"     # Decimal format
+            address_item = QTableWidgetItem(f"{address_hex} {address_dec}")
+            address_item.setFlags(Qt.ItemIsEnabled)  # Düzenlenemez
+
+            # Değer sütunu
+            value = self.data_memory[i]
+            value_item = QTableWidgetItem(str(value))
+            value_item.setFlags(Qt.ItemIsEnabled)  # Düzenlenemez
+
+            # Renk değişimi: değer 0 değilse arka planı gri yap
+            if value != 0:
+                value_item.setBackground(Qt.lightGray)
+            else:
+                value_item.setBackground(Qt.white)
+
+            # Tabloya ekle
+            self.data_memory_table.setItem(i, 0, address_item)
+            self.data_memory_table.setItem(i, 1, value_item)
+
+    def populate_registers(self):
+        """Registers tablosunu hem numerik hem sembolik isimlerle doldurur"""
+        # Register açıklamaları ve grupları
+        register_info = [
+            ("$zero", 0, "Constant 0"),
+            ("$at", 1, "Assembler temporary"),
+            ("$v0", 2, "Values for results"),
+            ("$v1", 3, "Values for results"),
+            ("$a0", 4, "Arguments"),
+            ("$a1", 5, "Arguments"),
+            ("$a2", 6, "Arguments"),
+            ("$a3", 7, "Arguments"),
+            ("$t0", 8, "Temporaries"),
+            ("$t1", 9, "Temporaries"),
+            ("$t2", 10, "Temporaries"),
+            ("$t3", 11, "Temporaries"),
+            ("$t4", 12, "Temporaries"),
+            ("$t5", 13, "Temporaries"),
+            ("$t6", 14, "Temporaries"),
+            ("$t7", 15, "Temporaries"),
+            ("$s0", 16, "Saved temporaries"),
+            ("$s1", 17, "Saved temporaries"),
+            ("$s2", 18, "Saved temporaries"),
+            ("$s3", 19, "Saved temporaries"),
+            ("$s4", 20, "Saved temporaries"),
+            ("$s5", 21, "Saved temporaries"),
+            ("$s6", 22, "Saved temporaries"),
+            ("$s7", 23, "Saved temporaries"),
+            ("$t8", 24, "More temporaries"),
+            ("$t9", 25, "More temporaries"),
+            ("$k0", 26, "Reserved for OS"),
+            ("$k1", 27, "Reserved for OS"),
+            ("$gp", 28, "Global pointer"),
+            ("$sp", 29, "Stack pointer"),
+            ("$fp", 30, "Frame pointer"),
+            ("$ra", 31, "Return address")
+        ]
         
-        for test_name, program in test_programs.items():
-            self.output_log.append(f"\nRunning {test_name}")
-            self.assembly_editor.setText(program)
-            self.run_program()
+        # Tabloyu doldur
+        for i, (name, number, desc) in enumerate(register_info):
+            # Numeric isim
+            numeric_item = QTableWidgetItem(f"$r{number}")
+            
+            # Sembolik isim
+            symbolic_item = QTableWidgetItem(name)
+            
+            # Değer
+            value_item = QTableWidgetItem(str(self.registers[i]))
+            
+            # Tabloya ekle
+            self.register_file_table.setItem(i, 0, numeric_item)
+            self.register_file_table.setItem(i, 1, symbolic_item)
+            self.register_file_table.setItem(i, 2, value_item)
+        
+        # Sütun genişliklerini ayarla
+        header = self.register_file_table.horizontalHeader()
+        header.setSectionResizeMode(0, QHeaderView.ResizeToContents)  # Numeric sütunu içeriğe göre
+        header.setSectionResizeMode(1, QHeaderView.Fixed)            # Symbolic sütunu sabit genişlik
+        header.setSectionResizeMode(2, QHeaderView.Stretch)          # Value sütunu kalan alanı doldursun
+        
+        # Symbolic sütununun genişliğini manuel ayarla
+        self.register_file_table.setColumnWidth(1, 80)  # Piksel cinsinden genişlik
 
     def get_register_changes(self, old_values):
         changes = []
@@ -911,19 +877,6 @@ class MIPSSimulator(QMainWindow):
             if self.data_memory[i] != old_values[i]:
                 changes.append(f"M[0x{i*4:03x}]: {old_values[i]} -> {self.data_memory[i]}")
         return ", ".join(changes) if changes else "No changes"
-
-    def clean_instruction_params(self, instruction):
-        """Temiz parametre listesi döndürür"""
-        parts = instruction.split(None, 1)  # İlk boşluktan böl (opcode ve parametreleri ayır)
-        if len(parts) < 2:
-            return [], ""
-        
-        op = parts[0].lower()
-        params_str = parts[1]
-        
-        # Tüm boşlukları kaldır ve virgülle ayrılmış parametreleri al
-        clean_params = [p.strip() for p in params_str.replace(" ", "").split(",")]
-        return clean_params, op
 
     def show_changes(self, old_reg_values, old_mem_values):
         """Register ve bellek değişikliklerini gösterir"""
@@ -953,6 +906,26 @@ class MIPSSimulator(QMainWindow):
             
         if not reg_changes and not mem_changes:
             self.output_log.append("\nNo changes in registers or memory")
+
+#Trace ekleme
+    def add_to_trace(self, instruction, machine_code, old_reg_values, old_mem_values):
+        trace_entry = (
+            f"PC: 0x{self.pc:08x}\n"
+            f"Instruction: {instruction}\n"
+            f"Machine Code: {machine_code}\n"
+            f"Register Changes: {self.get_register_changes(old_reg_values)}\n"
+            f"Memory Changes: {self.get_memory_changes(old_mem_values)}\n"
+            f"{'-'*50}\n"
+        )
+        self.execution_trace.append(trace_entry)
+        self.update_trace_display()
+
+    def update_trace_display(self):
+        self.trace_display.setText("".join(self.execution_trace))
+        # Otomatik olarak en alta kaydır
+        self.trace_display.verticalScrollBar().setValue(
+            self.trace_display.verticalScrollBar().maximum()
+        )
 
 
 def main():
