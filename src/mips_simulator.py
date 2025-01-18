@@ -3,7 +3,7 @@ from PyQt5.QtWidgets import (
     QTextEdit, QTableWidget, QTableWidgetItem, QPushButton, QLabel,
     QSplitter, QHeaderView, QFrame, QGroupBox, QSizePolicy
 )
-from PyQt5.QtGui import QFont
+from PyQt5.QtGui import QFont, QColor
 from PyQt5.QtCore import Qt
 import sys
 
@@ -223,126 +223,173 @@ class MIPSSimulator(QMainWindow):
 
 #Program kontrol butonları
     def reset_program(self):
-        """Program durumunu sıfırlar"""
-        try:
-            # Memory ve registerleri sıfırla
-            self.data_memory = [0] * (self.MEMORY_SIZE // self.WORD_SIZE)
-            self.registers = [0] * self.NUM_REGISTERS
-            self.current_instruction = 0
-            self.labels = {}
-            self.machine_code = []  # Clear machine code list
-            self.execution_trace = []  # Clear execution trace
-            
-            # Displays güncelle
-            self.populate_memory()
-            self.populate_registers()
-            
-            # Clear machine code table
-            self.machine_code_table.setRowCount(0)
-            
-            # Clear trace display
-            self.trace_display.clear()
-            
-            self.output_log.clear()
-            self.output_log.append("System reset completed")
-            
-        except Exception as e:
-            self.output_log.append(f"Reset failed: {str(e)}")
+        # Registers'ları sıfırla
+        self.registers = [0] * 32
+        
+        # Memory'i sıfırla
+        self.data_memory = [0] * self.MEMORY_SIZE
+        
+        # Program counter'ı sıfırla
+        self.pc = 0
+        
+        # Current instruction'ı sıfırla
+        self.current_instruction = 0
+        
+        # Machine code'u sıfırla
+        self.machine_code = []
+        
+        # Machine code tablosunu temizle
+        self.machine_code_table.setRowCount(0)
+        
+        # Execution trace'i temizle
+        self.execution_trace = []
+        self.update_trace_display()
+        
+        # Instruction count'u sıfırla
+        self.instruction_count = 0
+        
+        # Register ve memory tablolarını güncelle
+        self.populate_registers()
+        self.populate_memory()
+        
+        # Output log'u temizle
+        self.output_log.clear()
+        self.output_log.append("System reset completed")
 
     def run_program(self):
         try:
-            # 1. Program durumunu sıfırla
+            # Program durumunu sıfırla
             self.reset_program()
+            self.labels = {}
             
-            # 2. Assembly kodunu al ve temizle
-            assembly_code = self.assembly_editor.toPlainText()  # Editördeki kodu al
-            instructions = [line.split('#')[0].strip() for line in assembly_code.splitlines() 
+            # Assembly kodunu al ve temizle
+            assembly_code = self.assembly_editor.toPlainText()
+            instructions = [line.strip() for line in assembly_code.splitlines() 
                            if line.strip() and not line.strip().startswith('#')]
             
-            # 3. İlk geçiş: etiketleri topla
-            self.labels = {}
+            # Etiketleri topla
             cleaned_instructions = []
             instruction_index = 0
-            
-            # 4. Her bir komut için:
-            for instruction in instructions:
-                if ':' in instruction:  # Etiket varsa
-                    label = instruction.split(':')[0].strip()
+            for line in instructions:
+                if ':' in line:
+                    parts = line.split(':')
+                    label = parts[0].strip()
                     self.labels[label] = instruction_index
-                    instruction = instruction.split(':')[1].strip()
-                if instruction:  # Boş olmayan komutlar için
-                    cleaned_instructions.append(instruction)
-                    # Her komut için makine kodu üret
-                    machine_code = self.generate_machine_code(instruction)
-                    self.machine_code.append(machine_code)
+                    if len(parts) > 1 and parts[1].strip():
+                        cleaned_instructions.append(parts[1].strip())
+                        instruction_index += 1
+                else:
+                    cleaned_instructions.append(line)
                     instruction_index += 1
             
-            # 5. Makine kodu tablosunu güncelle
-            self.update_machine_code_display(cleaned_instructions)
+            # Machine code table'ı hazırla
+            self.machine_code_table.setRowCount(len(cleaned_instructions))
             
-            # 6. İkinci geçiş: komutları çalıştır
+            # Her komut için machine code oluştur ve tabloya ekle
+            for i, instruction in enumerate(cleaned_instructions):
+                # Adres sütunu
+                addr_item = QTableWidgetItem(f"0x{i*4:08x}")
+                self.machine_code_table.setItem(i, 0, addr_item)
+                
+                # Komut sütunu
+                inst_item = QTableWidgetItem(instruction)
+                self.machine_code_table.setItem(i, 1, inst_item)
+                
+                # Machine code sütunu
+                code = self.generate_machine_code(instruction)
+                code_item = QTableWidgetItem(code)
+                self.machine_code_table.setItem(i, 2, code_item)
+            
+            # Komutları çalıştır
             self.current_instruction = 0
             while self.current_instruction < len(cleaned_instructions):
                 instruction = cleaned_instructions[self.current_instruction]
-                if instruction:
-                    try:
-                        # Komutu çalıştır
-                        self.execute_instruction(instruction)
-                        # Branch/jump değilse sonraki komuta geç
-                        parts = instruction.split()
-                        op = parts[0].lower()
-                        if op not in ['beq', 'bne', 'j', 'jal', 'jr']:
-                            self.current_instruction += 1
-                    except Exception as e:
-                        self.output_log.append(f"Error executing: {instruction}")
-                        self.output_log.append(f"Error: {str(e)}")
-                        break
+                try:
+                    self.execute_instruction(instruction)
+                    # Branch/jump değilse sonraki komuta geç
+                    parts = instruction.split()
+                    op = parts[0].lower()
+                    if op not in ['beq', 'bne', 'j', 'jal', 'jr']:
+                        self.current_instruction += 1
+                except Exception as e:
+                    self.output_log.append(f"Error executing: {instruction}")
+                    self.output_log.append(f"Error: {str(e)}")
+                    break
             
-            # 7. Bellek ve register tablolarını güncelle
+            # Program tamamlandı
+            self.output_log.append("\nProgram execution completed!")
+            self.output_log.append("-" * 40)
+            
+            # Bellek ve register tablolarını güncelle
             self.populate_memory()
             self.populate_registers()
-            self.output_log.append("Program execution completed")
             
         except Exception as e:
             self.output_log.append(f"Program execution failed: {str(e)}")
 
     def step_program(self):
         try:
-            # Get assembly code and clean instructions
+            # Assembly kodunu al ve temizle
             assembly_code = self.assembly_editor.toPlainText()
-            instructions = [line.split('#')[0].strip() for line in assembly_code.splitlines() 
+            instructions = [line.strip() for line in assembly_code.splitlines() 
                            if line.strip() and not line.strip().startswith('#')]
             
-            # Check if program execution is complete
-            if self.current_instruction >= len(instructions):
-                self.output_log.append("Program execution completed")
+            # Etiketleri topla (eğer henüz toplanmamışsa)
+            if not hasattr(self, 'labels') or not self.labels:
+                self.labels = {}
+                instruction_index = 0
+                for line in instructions:
+                    if ':' in line:
+                        parts = line.split(':')
+                        label = parts[0].strip()
+                        self.labels[label] = instruction_index
+                        if len(parts) > 1 and parts[1].strip():
+                            instruction_index += 1
+                    else:
+                        instruction_index += 1
+            
+            # Temiz komutları oluştur
+            cleaned_instructions = []
+            for line in instructions:
+                if ':' in line:
+                    parts = line.split(':')
+                    if len(parts) > 1 and parts[1].strip():
+                        cleaned_instructions.append(parts[1].strip())
+                else:
+                    cleaned_instructions.append(line)
+            
+            # Program tamamlandı mı kontrol et
+            if self.current_instruction >= len(cleaned_instructions):
+                self.output_log.clear()
+                self.output_log.append("Program execution completed!")
+                self.output_log.append("-" * 40)
                 return
             
-            # Get current instruction
-            instruction = instructions[self.current_instruction]
-            clean_params, op = self.clean_instruction_params(instruction)
+            # Machine code table'ı hazırla (eğer henüz hazır değilse)
+            if self.machine_code_table.rowCount() != len(cleaned_instructions):
+                self.machine_code_table.setRowCount(len(cleaned_instructions))
+                # Tüm komutlar için machine code'ları oluştur
+                for i, inst in enumerate(cleaned_instructions):
+                    addr_item = QTableWidgetItem(f"0x{i*4:08x}")
+                    inst_item = QTableWidgetItem(inst)
+                    code = self.generate_machine_code(inst)
+                    code_item = QTableWidgetItem(code)
+                    
+                    self.machine_code_table.setItem(i, 0, addr_item)
+                    self.machine_code_table.setItem(i, 1, inst_item)
+                    self.machine_code_table.setItem(i, 2, code_item)
             
-            # Generate machine code for current instruction
-            machine_code = self.generate_machine_code(instruction)
-            
-            # Update machine code table
-            self.machine_code_table.setRowCount(len(instructions))
-            for i, inst in enumerate(instructions):
-                # Address column
-                self.machine_code_table.setItem(i, 0, QTableWidgetItem(f"0x{i*4:08x}"))
-                # Instruction column
-                self.machine_code_table.setItem(i, 1, QTableWidgetItem(inst))
-                # Machine code column - generate code for all instructions
-                code = self.generate_machine_code(inst)
-                self.machine_code_table.setItem(i, 2, QTableWidgetItem(code))
-                
-                # Highlight current instruction
-                for j in range(3):  # 3 columns
+            # Mevcut komutu highlight et
+            for i in range(len(cleaned_instructions)):
+                for j in range(3):
                     item = self.machine_code_table.item(i, j)
                     if item:
                         item.setBackground(Qt.yellow if i == self.current_instruction else Qt.white)
             
-            # Clear and update output log
+            instruction = cleaned_instructions[self.current_instruction]
+            machine_code = self.generate_machine_code(instruction)
+            
+            # Output log'u güncelle
             self.output_log.clear()
             self.output_log.append(f"Step {self.current_instruction + 1}")
             self.output_log.append("-" * 40)
@@ -351,103 +398,41 @@ class MIPSSimulator(QMainWindow):
             self.output_log.append("")
             self.output_log.append("Explanation:")
             
-            # Store current state for change tracking
+            # Execute instruction and track changes
             old_reg_values = self.registers.copy()
             old_mem_values = self.data_memory.copy()
             
-            # Explain instruction based on operation type
-            if op in ['add', 'sub', 'and', 'or']:
-                rd, rs, rt = clean_params
-                rs_val = self.registers[self.register_map[rs]]
-                rt_val = self.registers[self.register_map[rt]]
-                operation_symbols = {'add': '+', 'sub': '-', 'and': '&', 'or': '|'}
-                self.output_log.append(f"• Operation: {op.upper()}")
-                self.output_log.append(f"• {rd} = {rs}({rs_val}) {operation_symbols[op]} {rt}({rt_val})")
+            try:
+                old_instruction = self.current_instruction
+                self.execute_instruction(instruction)
                 
-            elif op in ['sll', 'srl']:
-                rd, rt, shamt = clean_params
-                rt_val = self.registers[self.register_map[rt]]
-                direction = "left" if op == 'sll' else "right"
-                self.output_log.append(f"• Operation: Shift {direction}")
-                self.output_log.append(f"• {rd} = {rt}({rt_val}) shifted by {shamt} bits")
+                # Show changes
+                reg_changes = self.get_register_changes(old_reg_values)
+                mem_changes = self.get_memory_changes(old_mem_values)
                 
-            elif op == 'slt':
-                rd, rs, rt = clean_params
-                rs_val = self.registers[self.register_map[rs]]
-                rt_val = self.registers[self.register_map[rt]]
-                self.output_log.append(f"• Operation: Set less than")
-                self.output_log.append(f"• {rd} = 1 if {rs}({rs_val}) < {rt}({rt_val}), else 0")
+                self.output_log.append("")
+                self.output_log.append("Result:")
+                if reg_changes != "No changes":
+                    self.output_log.append(f"• Register: {reg_changes}")
+                if mem_changes != "No changes":
+                    self.output_log.append(f"• Memory: {mem_changes}")
                 
-            elif op == 'addi':
-                rt, rs, imm = clean_params
-                rs_val = self.registers[self.register_map[rs]]
-                self.output_log.append(f"• Operation: Add immediate")
-                self.output_log.append(f"• {rt} = {rs}({rs_val}) + {imm}")
+                # Register ve memory tablolarını güncelle ve değişiklikleri vurgula
+                self.populate_registers(old_reg_values)
+                self.populate_memory(old_mem_values)
                 
-            elif op in ['lw', 'sw']:
-                rt = clean_params[0]
-                offset_base = clean_params[1]
-                offset, base = offset_base.split('(')
-                base = base.strip(')')
-                base_val = self.registers[self.register_map[base]]
-                addr = base_val + int(offset)
-                if op == 'lw':
-                    self.output_log.append(f"• Operation: Load word")
-                    self.output_log.append(f"• Load from memory[{addr}] into {rt}")
-                else:
-                    rt_val = self.registers[self.register_map[rt]]
-                    self.output_log.append(f"• Operation: Store word")
-                    self.output_log.append(f"• Store {rt}({rt_val}) into memory[{addr}]")
-                    
-            elif op in ['beq', 'bne']:
-                rs, rt, label = clean_params
-                rs_val = self.registers[self.register_map[rs]]
-                rt_val = self.registers[self.register_map[rt]]
-                condition = "equal to" if op == 'beq' else "not equal to"
-                self.output_log.append(f"• Operation: Branch if {condition}")
-                self.output_log.append(f"• If {rs}({rs_val}) {condition} {rt}({rt_val})")
-                self.output_log.append(f"• Then branch to {label}")
-                
-            elif op in ['j', 'jal']:
-                label = clean_params[0]
-                if op == 'jal':
-                    self.output_log.append(f"• Operation: Jump and link")
-                    self.output_log.append(f"• Save return address and jump to {label}")
-                else:
-                    self.output_log.append(f"• Operation: Jump")
-                    self.output_log.append(f"• Jump to {label}")
-                    
-            elif op == 'jr':
-                rs = clean_params[0]
-                rs_val = self.registers[self.register_map[rs]]
-                self.output_log.append(f"• Operation: Jump register")
-                self.output_log.append(f"• Jump to address in {rs}({rs_val})")
-
-            self.output_log.append("")
-            self.output_log.append("Result:")
+            except Exception as e:
+                self.output_log.append(f"Error executing: {instruction}")
+                self.output_log.append(f"Error: {str(e)}")
             
-            # Execute instruction and track changes
-            self.execute_instruction(instruction)
-            
-            # Show changes
-            reg_changes = self.get_register_changes(old_reg_values)
-            mem_changes = self.get_memory_changes(old_mem_values)
-            
-            if reg_changes != "No changes":
-                self.output_log.append(f"• Register: {reg_changes}")
-            if mem_changes != "No changes":
-                self.output_log.append(f"• Memory: {mem_changes}")
-
             self.output_log.append("-" * 40)
             
-            # Update displays
-            self.populate_memory()
-            self.populate_registers()
-            
             # Move to next instruction if not a branch/jump
+            parts = instruction.split()
+            op = parts[0].lower()
             if op not in ['beq', 'bne', 'j', 'jal', 'jr']:
                 self.current_instruction += 1
-            
+                
         except Exception as e:
             self.output_log.append(f"Error: {str(e)}")
 
@@ -467,6 +452,9 @@ class MIPSSimulator(QMainWindow):
 
     def execute_instruction(self, instruction):
         """Komutları yürütür"""
+        # Yorumları kaldır
+        instruction = instruction.split('#')[0].strip()
+        
         # Mevcut durumu kaydet
         old_reg_values = self.registers.copy()
         old_mem_values = self.data_memory.copy()
@@ -561,7 +549,13 @@ class MIPSSimulator(QMainWindow):
                 rs_idx = self.register_map[rs]
                 rt_idx = self.register_map[rt]
                 if self.registers[rs_idx] == self.registers[rt_idx]:
-                    self.current_instruction = self.labels[label]
+                    if label in self.labels:
+                        self.current_instruction = self.labels[label]
+                    else:
+                        raise Exception(f"Label not found: {label}")
+                else:
+                    # Eğer branch alınmazsa, bir sonraki komuta geç
+                    self.current_instruction += 1
                 self.output_log.append(f"beq evaluated to {'taken' if self.registers[rs_idx] == self.registers[rt_idx] else 'not taken'}")
             
             elif op == "bne":
@@ -569,7 +563,13 @@ class MIPSSimulator(QMainWindow):
                 rs_idx = self.register_map[rs]
                 rt_idx = self.register_map[rt]
                 if self.registers[rs_idx] != self.registers[rt_idx]:
-                    self.current_instruction = self.labels[label]
+                    if label in self.labels:
+                        self.current_instruction = self.labels[label]
+                    else:
+                        raise Exception(f"Label not found: {label}")
+                else:
+                    # Eğer branch alınmazsa, bir sonraki komuta geç
+                    self.current_instruction += 1
                 self.output_log.append(f"bne evaluated to {'taken' if self.registers[rs_idx] != self.registers[rt_idx] else 'not taken'}")
             
             elif op == "j":
@@ -624,6 +624,9 @@ class MIPSSimulator(QMainWindow):
 
     def clean_instruction_params(self, instruction):
         """Temiz parametre listesi döndürür"""
+        # Önce yorumları kaldır
+        instruction = instruction.split('#')[0].strip()
+        
         parts = instruction.split(None, 1)  # İlk boşluktan böl (opcode ve parametreleri ayır)
         if len(parts) < 2:
             return [], ""
@@ -746,12 +749,22 @@ class MIPSSimulator(QMainWindow):
 
             # J-Format Instructions
             elif op == "j":     # 000010 target
-                target = self.labels.get(params[0], 0) & 0x3FFFFFF
-                return f"000010{target:026b}"
+                target = params[0]
+                if target in self.labels:
+                    target_address = self.labels[target] & 0x3FFFFFF
+                    return f"000010{target_address:026b}"
+                else:
+                    self.output_log.append(f"Warning: Label '{target}' not found")
+                    return "00001000000000000000000000000000"
 
             elif op == "jal":   # 000011 target
-                target = self.labels.get(params[0], 0) & 0x3FFFFFF
-                return f"000011{target:026b}"
+                target = params[0]
+                if target in self.labels:
+                    target_address = self.labels[target] & 0x3FFFFFF
+                    return f"000011{target_address:026b}"
+                else:
+                    self.output_log.append(f"Warning: Label '{target}' not found")
+                    return "00001100000000000000000000000000"
 
             elif op == "jr":    # 000000 rs 00000 00000 00000 001000
                 rs = self.register_map[params[0]] & 0x1F
@@ -771,36 +784,25 @@ class MIPSSimulator(QMainWindow):
             self.machine_code_table.setItem(i, 2, QTableWidgetItem(code))
 
 #Durum takip ve görüntüleme
-    def populate_memory(self):
-        """Veri belleğini (data memory) 4'er byte'lık bloklar halinde görüntüle."""
-        self.data_memory_table.setRowCount(self.MEMORY_SIZE // self.WORD_SIZE)  # 512 byte / 4 = 128 satır
-        self.data_memory_table.setColumnCount(2)  # Adres ve Değer sütunları
-        self.data_memory_table.setHorizontalHeaderLabels(["Address (Hex/Dec)", "Value"])
-        self.data_memory_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-
-        for i in range(len(self.data_memory)):
+    def populate_memory(self, old_values=None):
+        """Data memory tablosunu doldurur"""
+        for i in range(self.MEMORY_SIZE // self.WORD_SIZE):
             # Adres sütunu
-            address_hex = f"0x{i * 4:08x}"  # Hexadecimal format
-            address_dec = f"({i * 4})"     # Decimal format
-            address_item = QTableWidgetItem(f"{address_hex} {address_dec}")
-            address_item.setFlags(Qt.ItemIsEnabled)  # Düzenlenemez
-
+            addr_item = QTableWidgetItem(f"0x{i*4:08x}")
+            self.data_memory_table.setItem(i, 0, addr_item)
+            
             # Değer sütunu
-            value = self.data_memory[i]
-            value_item = QTableWidgetItem(str(value))
-            value_item.setFlags(Qt.ItemIsEnabled)  # Düzenlenemez
-
-            # Renk değişimi: değer 0 değilse arka planı gri yap
-            if value != 0:
-                value_item.setBackground(Qt.lightGray)
+            value_item = QTableWidgetItem(str(self.data_memory[i]))
+            
+            # Eğer eski değerler varsa ve değişiklik olduysa arka planı renklendir
+            if old_values is not None and self.data_memory[i] != old_values[i]:
+                value_item.setBackground(QColor(255, 255, 0))  # Sarı renk
             else:
                 value_item.setBackground(Qt.white)
-
-            # Tabloya ekle
-            self.data_memory_table.setItem(i, 0, address_item)
+            
             self.data_memory_table.setItem(i, 1, value_item)
 
-    def populate_registers(self):
+    def populate_registers(self, old_values=None):
         """Registers tablosunu hem numerik hem sembolik isimlerle doldurur"""
         # Register açıklamaları ve grupları
         register_info = [
@@ -848,6 +850,12 @@ class MIPSSimulator(QMainWindow):
             
             # Değer
             value_item = QTableWidgetItem(str(self.registers[i]))
+            
+            # Eğer eski değerler varsa ve değişiklik olduysa arka planı renklendir
+            if old_values is not None and self.registers[i] != old_values[i]:
+                value_item.setBackground(QColor(255, 255, 0))  # Sarı renk
+            else:
+                value_item.setBackground(Qt.white)
             
             # Tabloya ekle
             self.register_file_table.setItem(i, 0, numeric_item)
@@ -909,7 +917,13 @@ class MIPSSimulator(QMainWindow):
 
 #Trace ekleme
     def add_to_trace(self, instruction, machine_code, old_reg_values, old_mem_values):
+        # Instruction count'u tutmak için yeni bir sınıf değişkeni
+        if not hasattr(self, 'instruction_count'):
+            self.instruction_count = 0
+        self.instruction_count += 1
+        
         trace_entry = (
+            f"Step {self.instruction_count}\n"
             f"PC: 0x{self.pc:08x}\n"
             f"Instruction: {instruction}\n"
             f"Machine Code: {machine_code}\n"
@@ -919,6 +933,12 @@ class MIPSSimulator(QMainWindow):
         )
         self.execution_trace.append(trace_entry)
         self.update_trace_display()
+
+        # Program sonunda toplam adım sayısını göster
+        if instruction.strip().lower() == 'beq $s1, $s0, end_sort' and self.registers[self.register_map['$s1']] == self.registers[self.register_map['$s0']]:
+            summary = f"\nProgram completed in {self.instruction_count} steps\n{'-'*50}\n"
+            self.execution_trace.append(summary)
+            self.update_trace_display()
 
     def update_trace_display(self):
         self.trace_display.setText("".join(self.execution_trace))
