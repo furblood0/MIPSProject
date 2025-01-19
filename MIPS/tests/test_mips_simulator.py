@@ -1,7 +1,7 @@
 import sys
 import unittest
 from PyQt5.QtWidgets import QApplication
-from src.mips_simulator import MIPSSimulator
+from MIPS.src.mips_simulator import MIPSSimulator
 
 class TestMIPSSimulator(unittest.TestCase):
     @classmethod
