@@ -1,7 +1,7 @@
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QTextEdit, QTableWidget, QTableWidgetItem, QPushButton, QLabel,
-    QSplitter, QHeaderView, QFrame, QGroupBox, QSizePolicy
+    QSplitter, QHeaderView, QFrame, QGroupBox, QSizePolicy, QAbstractItemView
 )
 from PyQt5.QtGui import QFont, QColor
 from PyQt5.QtCore import Qt
@@ -388,12 +388,18 @@ class MIPSSimulator(QMainWindow):
                     self.machine_code_table.setItem(i, 1, inst_item)
                     self.machine_code_table.setItem(i, 2, code_item)
             
-            # Mevcut komutu highlight et
+            # Mevcut komutu highlight et ve görünür yap
             for i in range(len(cleaned_instructions)):
                 for j in range(3):
                     item = self.machine_code_table.item(i, j)
                     if item:
                         item.setBackground(Qt.yellow if i == self.current_instruction else Qt.white)
+            
+            # Mevcut komutu görünür yap
+            self.machine_code_table.scrollToItem(
+                self.machine_code_table.item(self.current_instruction, 0),
+                QAbstractItemView.PositionAtCenter
+            )
             
             instruction = cleaned_instructions[self.current_instruction]
             machine_code = self.generate_machine_code(instruction)
@@ -795,6 +801,8 @@ class MIPSSimulator(QMainWindow):
 #Durum takip ve görüntüleme
     def populate_memory(self, old_values=None):
         """Data memory tablosunu doldurur"""
+        first_changed_row = None
+        
         for i in range(self.MEMORY_SIZE // self.WORD_SIZE):
             # Adres sütunu
             addr_item = QTableWidgetItem(f"0x{i*4:08x}")
@@ -806,13 +814,24 @@ class MIPSSimulator(QMainWindow):
             # Eğer eski değerler varsa ve değişiklik olduysa arka planı renklendir
             if old_values is not None and self.data_memory[i] != old_values[i]:
                 value_item.setBackground(QColor(255, 255, 0))  # Sarı renk
+                if first_changed_row is None:
+                    first_changed_row = i
             else:
                 value_item.setBackground(Qt.white)
             
             self.data_memory_table.setItem(i, 1, value_item)
+        
+        # Eğer değişiklik olan bir satır varsa, o satırı görünür yap
+        if first_changed_row is not None:
+            self.data_memory_table.scrollToItem(
+                self.data_memory_table.item(first_changed_row, 0),
+                QAbstractItemView.PositionAtCenter
+            )
 
     def populate_registers(self, old_values=None):
         """Registers tablosunu hem numerik hem sembolik isimlerle doldurur"""
+        first_changed_row = None
+        
         # Register açıklamaları ve grupları
         register_info = [
             ("$zero", 0, "Constant 0"),
@@ -863,6 +882,8 @@ class MIPSSimulator(QMainWindow):
             # Eğer eski değerler varsa ve değişiklik olduysa arka planı renklendir
             if old_values is not None and self.registers[i] != old_values[i]:
                 value_item.setBackground(QColor(255, 255, 0))  # Sarı renk
+                if first_changed_row is None:
+                    first_changed_row = i
             else:
                 value_item.setBackground(Qt.white)
             
@@ -870,6 +891,13 @@ class MIPSSimulator(QMainWindow):
             self.register_file_table.setItem(i, 0, numeric_item)
             self.register_file_table.setItem(i, 1, symbolic_item)
             self.register_file_table.setItem(i, 2, value_item)
+        
+        # Eğer değişiklik olan bir satır varsa, o satırı görünür yap
+        if first_changed_row is not None:
+            self.register_file_table.scrollToItem(
+                self.register_file_table.item(first_changed_row, 0),
+                QAbstractItemView.PositionAtCenter
+            )
         
         # Sütun genişliklerini ayarla
         header = self.register_file_table.horizontalHeader()
