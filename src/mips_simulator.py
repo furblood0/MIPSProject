@@ -14,7 +14,7 @@ class MIPSSimulator(QMainWindow):
         super().__init__()
         # Memory configuration
         self.MEMORY_SIZE = 512  # 512 bytes
-        self.WORD_SIZE = 4      # 32-bit = 4 bytes
+        self.WORD_SIZE = 4      # 4 bytes per word
         self.instruction_memory = [0] * (self.MEMORY_SIZE // self.WORD_SIZE)  # 512 bytes / 4 = 128 words
         self.data_memory = [0] * (self.MEMORY_SIZE // self.WORD_SIZE)        # 512 bytes / 4 = 128 words
         
@@ -51,6 +51,11 @@ class MIPSSimulator(QMainWindow):
         # Initialize UI
         self.initUI()
         
+        # Data memory tablosunu oluştur
+        self.data_memory_table.setRowCount(self.MEMORY_SIZE // self.WORD_SIZE)  # 128 rows
+        self.data_memory_table.setColumnCount(2)
+        self.data_memory_table.setHorizontalHeaderLabels(['Address', 'Value'])
+
         # Connect buttons to functions
         self.run_button.clicked.connect(self.run_program)
         self.step_button.clicked.connect(self.step_program)
@@ -114,7 +119,7 @@ class MIPSSimulator(QMainWindow):
         memory_layout = QVBoxLayout()
         memory_group.setLayout(memory_layout)
 
-        self.data_memory_table = QTableWidget(16, 2)
+        self.data_memory_table = QTableWidget(self.MEMORY_SIZE // self.WORD_SIZE, 2)
         self.data_memory_table.setHorizontalHeaderLabels(["Address", "Value"])
         self.data_memory_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         memory_layout.addWidget(self.data_memory_table)
@@ -261,6 +266,7 @@ class MIPSSimulator(QMainWindow):
             # Program durumunu sıfırla
             self.reset_program()
             self.labels = {}
+            self.machine_code = []  # Machine code listesini temizle
             
             # Assembly kodunu al ve temizle
             assembly_code = self.assembly_editor.toPlainText()
@@ -299,6 +305,9 @@ class MIPSSimulator(QMainWindow):
                 code = self.generate_machine_code(instruction)
                 code_item = QTableWidgetItem(code)
                 self.machine_code_table.setItem(i, 2, code_item)
+                
+                # Machine code listesine ekle
+                self.machine_code.append(code)
             
             # Komutları çalıştır
             self.current_instruction = 0
