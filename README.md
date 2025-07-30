@@ -135,5 +135,5 @@ This project was developed as part of a course assignment to enhance understandi
 
 ---
 
-For any issues or questions, please contact [kiyak.rabia03@gmail.com/Rabia Leyla Kıyak].
+For any issues or questions, please contact [furkanfidan.2357@gmail.com/Furkan Fidan].
 
