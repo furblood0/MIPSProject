@@ -1,5 +1,12 @@
 # MIPS Simulator
 
+[![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![PyQt5](https://img.shields.io/badge/PyQt5-5.15+-green.svg)](https://pypi.org/project/PyQt5/)
+[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Tests](https://img.shields.io/badge/Tests-Passing-brightgreen.svg)](tests/)
+
+A comprehensive MIPS 32-bit architecture simulator with a modern PyQt5-based GUI for educational purposes.
+
 ## Overview
 This project is a MIPS 32-bit architecture simulator designed to execute a subset of MIPS assembly instructions. It provides a user-friendly PyQt5-based graphical user interface (GUI) for loading, editing, and executing MIPS programs. This simulator implements a fetch-decode-execute cycle and supports viewing the state of registers, memory, and program execution trace.
 
@@ -30,22 +37,22 @@ This project is a MIPS 32-bit architecture simulator designed to execute a subse
 ## Installation
 1. Clone the repository:
    ```bash
-   git clone <https://github.com/furblood0/MIPSProject.git>
-   cd mips-simulator
+   git clone https://github.com/furblood0/MIPSProject.git
+   cd MIPSProject
    ```
 
 2. Install required dependencies:
    ```bash
-   pip install pyqt5
+   pip install -r requirements.txt
    ```
 
 3. Run the simulator:
    ```bash
-   python mips_simulator.py
+   python src/mips_simulator.py
    ```
 
 ## Usage
-1. Open the application by running the `mips_simulator.py` file.
+1. Open the application by running the `src/mips_simulator.py` file.
 2. Enter MIPS assembly code in the "Assembly Code" editor.
 3. Click:
    - **Run** to execute the entire program.
@@ -90,10 +97,34 @@ jr $ra
 end:
 ```
 
-## File Structure
-- `mips_simulator.py`: Main source code containing the simulator implementation.
-- `README.md`: Documentation for the project.
-- `POJECT_REPORT.pdf`: Summary report including the purpose, design and implementation details of the project.
+## Project Structure
+```
+MIPSProject/
+├── src/
+│   └── mips_simulator.py    # Main simulator implementation
+├── tests/
+│   └── test_mips_simulator.py  # Unit tests
+├── docs/
+│   └── mipspreojectreport.pdf  # Project report
+├── README.md                # This file
+├── requirements.txt         # Python dependencies
+├── .gitignore              # Git ignore rules
+└── LICENSE                 # MIT License
+```
+
+## Testing
+Run the test suite to verify everything works correctly:
+
+```bash
+python -m unittest tests/test_mips_simulator.py
+```
+
+## Contributing
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
 ## Known Issues
 - Limited error handling for certain edge cases in assembly code input.
